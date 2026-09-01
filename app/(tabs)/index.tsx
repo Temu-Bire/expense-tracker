@@ -1,98 +1,296 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { Button } from '@/components/common/Button';
+import { EmptyState } from '@/components/common/EmptyState';
+import { Header } from '@/components/common/Header';
+import { SummaryCard } from '@/components/expense/SummaryCard';
+import { TransactionItem } from '@/components/expense/TransactionItem';
+import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { useExpenseStore } from '@/store/useExpenseStore';
+import { Expense, TransactionFilter } from '@/types/expense';
+import { filterExpenses } from '@/utils/calculations';
 
-export default function HomeScreen() {
+export default function DashboardScreen() {
+  const router = useRouter();
+  const colorScheme = useColorScheme();
+  const theme = COLORS[colorScheme];
+
+  const expenses = useExpenseStore((state) => state.expenses);
+  const isLoading = useExpenseStore((state) => state.isLoading);
+  const init = useExpenseStore((state) => state.init);
+
+  const [filter, setFilter] = useState<TransactionFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const filteredTransactions = useMemo(() => {
+    return filterExpenses(expenses, filter, searchQuery);
+  }, [expenses, filter, searchQuery]);
+
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    await init();
+    setIsRefreshing(false);
+  };
+
+  const handleAddExpense = () => {
+    router.push('/add-expense');
+  };
+
+  const handleEditExpense = (transaction: Expense) => {
+    router.push({
+      pathname: '/add-expense',
+      params: { id: transaction.id },
+    });
+  };
+
+  if (isLoading && expenses.length === 0) {
+    return (
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: theme.background },
+        ]}
+      >
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  const filterOptions: { label: string; value: TransactionFilter }[] = [
+    { label: 'All', value: 'all' },
+    { label: 'Expenses', value: 'expense' },
+    { label: 'Income', value: 'income' },
+  ];
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
+    <SafeAreaView
+      edges={['top', 'left', 'right']}
+      style={[styles.safeArea, { backgroundColor: theme.background }]}
+    >
+      <FlatList
+        data={filteredTransactions}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <TransactionItem
+            transaction={item}
+            onPress={handleEditExpense}
+          />
+        )}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+          />
+        }
+        ListHeaderComponent={
+          <View>
+            {/* Screen Header */}
+            <Header
+              title="Overview"
+              subtitle="Track your daily expenses & income"
+              rightAction={
+                <Button
+                  title="Add"
+                  icon="add"
+                  size="sm"
+                  onPress={handleAddExpense}
+                />
+              }
             />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+            {/* Total Balance / Summary Card */}
+            <SummaryCard />
+
+            {/* Search Input */}
+            <View
+              style={[
+                styles.searchBar,
+                {
+                  backgroundColor: theme.surfaceSecondary,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <Ionicons
+                name="search-outline"
+                size={18}
+                color={theme.textMuted}
+                style={styles.searchIcon}
+              />
+              <TextInput
+                placeholder="Search transactions..."
+                placeholderTextColor={theme.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                style={[styles.searchInput, { color: theme.textPrimary }]}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons
+                    name="close-circle"
+                    size={18}
+                    color={theme.textMuted}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Filter Tabs */}
+            <View style={styles.filterRow}>
+              {filterOptions.map((opt) => {
+                const isSelected = filter === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    activeOpacity={0.7}
+                    onPress={() => setFilter(opt.value)}
+                    style={[
+                      styles.filterChip,
+                      {
+                        backgroundColor: isSelected
+                          ? COLORS.primary
+                          : theme.surfaceSecondary,
+                        borderColor: isSelected
+                          ? COLORS.primary
+                          : theme.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        {
+                          color: isSelected ? '#FFFFFF' : theme.textSecondary,
+                          fontWeight: isSelected
+                            ? TYPOGRAPHY.fontWeight.bold
+                            : TYPOGRAPHY.fontWeight.medium,
+                        },
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Section Header */}
+            <View style={styles.sectionHeader}>
+              <Text
+                style={[styles.sectionTitle, { color: theme.textPrimary }]}
+              >
+                {filter === 'all'
+                  ? 'Recent Transactions'
+                  : filter === 'expense'
+                  ? 'Expenses'
+                  : 'Income'}
+              </Text>
+              <Text style={[styles.sectionCount, { color: theme.textSecondary }]}>
+                {filteredTransactions.length}{' '}
+                {filteredTransactions.length === 1 ? 'item' : 'items'}
+              </Text>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
+          <EmptyState
+            title={
+              searchQuery
+                ? 'No matching transactions'
+                : filter !== 'all'
+                ? `No ${filter} transactions recorded`
+                : 'No transactions yet'
+            }
+            message={
+              searchQuery
+                ? 'Try a different search query or clear the filter.'
+                : 'Start tracking your financial health by adding your first transaction!'
+            }
+            icon={searchQuery ? 'search-outline' : 'receipt-outline'}
+            actionTitle={searchQuery ? 'Clear Search' : '+ Add Transaction'}
+            onActionPress={
+              searchQuery ? () => setSearchQuery('') : handleAddExpense
+            }
+          />
+        }
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  safeArea: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollContent: {
+    padding: SPACING.lg,
+    paddingBottom: SPACING.xxxl,
+  },
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    marginBottom: SPACING.md,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  searchIcon: {
+    marginRight: SPACING.sm,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  searchInput: {
+    flex: 1,
+    paddingVertical: SPACING.sm + 2,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    marginBottom: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  filterChip: {
+    paddingVertical: SPACING.xs + 2,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+  },
+  filterChipText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  sectionTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  sectionCount: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
 });
