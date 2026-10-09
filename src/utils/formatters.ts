@@ -1,15 +1,20 @@
 import { TransactionType } from '../types/expense';
 
 /**
- * Formats a numeric value as a currency string (e.g. $1,250.00).
+ * Formats a numeric value as a currency string (e.g. $1,250.00) or masked dots (••••••).
  */
 export const formatCurrency = (
   amount: number,
   options?: {
     showSign?: boolean;
     type?: TransactionType;
+    masked?: boolean;
   }
 ): string => {
+  if (options?.masked) {
+    return '••••••';
+  }
+
   const absValue = Math.abs(amount);
   const formatted = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -36,16 +41,18 @@ export const formatCurrency = (
  */
 export const formatDate = (
   dateString: string,
-  variant: 'short' | 'medium' | 'full' | 'time' = 'medium'
+  variant: 'short' | 'medium' | 'full' | 'time' | 'input' = 'medium'
 ): string => {
   try {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return dateString;
 
     switch (variant) {
+      case 'input':
+        return date.toISOString().split('T')[0];
       case 'short':
         return date.toLocaleDateString('en-US', {
-          month: 'numeric',
+          month: 'short',
           day: 'numeric',
         });
       case 'medium':

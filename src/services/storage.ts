@@ -2,6 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Expense } from '../types/expense';
 
 const EXPENSES_STORAGE_KEY = '@expense_tracker:expenses_v1';
+const PREFERENCES_STORAGE_KEY = '@expense_tracker:preferences_v1';
+
+export interface UserPreferences {
+  hideBalance: boolean;
+  currency: string;
+}
 
 export const storageService = {
   /**
@@ -41,6 +47,32 @@ export const storageService = {
     } catch (e) {
       console.error('[storageService] Error clearing expenses:', e);
       throw e;
+    }
+  },
+
+  /**
+   * Load stored preferences.
+   */
+  async getPreferences(): Promise<Partial<UserPreferences>> {
+    try {
+      const jsonValue = await AsyncStorage.getItem(PREFERENCES_STORAGE_KEY);
+      return jsonValue ? JSON.parse(jsonValue) : {};
+    } catch (e) {
+      console.error('[storageService] Error reading preferences:', e);
+      return {};
+    }
+  },
+
+  /**
+   * Save user preferences.
+   */
+  async savePreferences(prefs: Partial<UserPreferences>): Promise<void> {
+    try {
+      const current = await this.getPreferences();
+      const updated = { ...current, ...prefs };
+      await AsyncStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.error('[storageService] Error saving preferences:', e);
     }
   },
 };

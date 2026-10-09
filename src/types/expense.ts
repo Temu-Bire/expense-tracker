@@ -41,6 +41,7 @@ export interface ExpenseSummary {
   totalIncome: number;
   totalExpenses: number;
   transactionCount: number;
+  savingsRate: number; // percentage (0 - 100)
 }
 
 export interface CategoryBreakdown {
@@ -53,4 +54,12 @@ export interface CategoryBreakdown {
   count: number;
 }
 
-export type TransactionFilter = 'all' | 'income' | 'expense';
+export type TransactionFilter = 'all' | 'expense' | 'income';
+
+export type TimePeriod = 'all' | 'month' | 'week';
+
+export interface GroupedExpenseSection {
+  title: string;
+  subtotal: number;
+  data: Expense[];
+}

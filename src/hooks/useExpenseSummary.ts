@@ -1,10 +1,25 @@
 import { useMemo } from 'react';
 import { useExpenseStore } from '../store/useExpenseStore';
-import { calculateCategoryBreakdown, calculateSummary, sortExpensesByDate } from '../utils/calculations';
+import { TimePeriod } from '../types/expense';
+import {
+  calculateCategoryBreakdown,
+  calculateSummary,
+  filterByPeriod,
+  groupExpensesByDate,
+  sortExpensesByDate,
+} from '../utils/calculations';
 
-export function useExpenseSummary() {
-  const expenses = useExpenseStore((state) => state.expenses);
+export function useExpenseSummary(customPeriod?: TimePeriod) {
+  const allExpenses = useExpenseStore((state) => state.expenses);
   const isLoading = useExpenseStore((state) => state.isLoading);
+  const storePeriod = useExpenseStore((state) => state.selectedPeriod);
+
+  const activePeriod = customPeriod ?? storePeriod;
+
+  const expenses = useMemo(
+    () => filterByPeriod(allExpenses, activePeriod),
+    [allExpenses, activePeriod]
+  );
 
   const summary = useMemo(() => calculateSummary(expenses), [expenses]);
 
@@ -23,12 +38,20 @@ export function useExpenseSummary() {
     [expenses]
   );
 
+  const groupedExpenses = useMemo(
+    () => groupExpensesByDate(expenses),
+    [expenses]
+  );
+
   return {
+    allExpenses,
     expenses,
     isLoading,
     summary,
     expenseBreakdown,
     incomeBreakdown,
     recentExpenses,
+    groupedExpenses,
+    activePeriod,
   };
 }
