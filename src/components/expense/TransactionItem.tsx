@@ -12,6 +12,7 @@ import { useColorScheme } from '../../hooks/useColorScheme';
 import { useExpenseStore } from '../../store/useExpenseStore';
 import { Expense } from '../../types/expense';
 import { formatCurrency, formatDate } from '../../utils/formatters';
+import { haptic } from '../../utils/haptics';
 import { CategoryBadge } from './CategoryBadge';
 
 interface TransactionItemProps {
@@ -28,11 +29,18 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
   const colorScheme = useColorScheme();
   const theme = COLORS[colorScheme];
   const deleteExpense = useExpenseStore((state) => state.deleteExpense);
+  const hideBalance = useExpenseStore((state) => state.hideBalance);
 
   const isIncome = transaction.type === 'income';
   const categoryMeta = getCategoryById(transaction.category);
 
-  const handleLongPress = () => {
+  const handlePress = () => {
+    haptic.selection();
+    onPress?.(transaction);
+  };
+
+  const handleLongPress = async () => {
+    await haptic.warning();
     Alert.alert(
       'Delete Transaction',
       `Are you sure you want to delete "${transaction.title}"?`,
@@ -41,11 +49,12 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
+            await haptic.heavy();
             if (onDelete) {
               onDelete(transaction.id);
             } else {
-              deleteExpense(transaction.id);
+              await deleteExpense(transaction.id);
             }
           },
         },
@@ -56,12 +65,13 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
   const formattedAmount = formatCurrency(transaction.amount, {
     showSign: true,
     type: transaction.type,
+    masked: hideBalance,
   });
 
   return (
     <TouchableOpacity
       activeOpacity={0.7}
-      onPress={() => onPress?.(transaction)}
+      onPress={handlePress}
       onLongPress={handleLongPress}
       style={[
         styles.container,
@@ -82,23 +92,30 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
         >
           {transaction.title}
         </Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          {categoryMeta.name} • {formatDate(transaction.date, 'short')}
+        <Text
+          numberOfLines={1}
+          style={[styles.subtitle, { color: theme.textSecondary }]}
+        >
+          {categoryMeta.name} • {formatDate(transaction.date, 'time')}
           {transaction.notes ? ` • ${transaction.notes}` : ''}
         </Text>
       </View>
 
       {/* Amount */}
-      <Text
-        style={[
-          styles.amount,
-          {
-            color: isIncome ? COLORS.income : theme.textPrimary,
-          },
-        ]}
-      >
-        {formattedAmount}
-      </Text>
+      <View style={styles.amountContainer}>
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          style={[
+            styles.amount,
+            {
+              color: isIncome ? COLORS.income : theme.textPrimary,
+            },
+          ]}
+        >
+          {formattedAmount}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -124,6 +141,9 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: TYPOGRAPHY.fontSize.xs,
+  },
+  amountContainer: {
+    alignItems: 'flex-end',
   },
   amount: {
     fontSize: TYPOGRAPHY.fontSize.md,

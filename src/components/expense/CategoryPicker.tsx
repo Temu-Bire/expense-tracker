@@ -10,6 +10,7 @@ import { getCategoriesByType } from '../../constants/categories';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/useColorScheme';
 import { CategoryId, TransactionType } from '../../types/expense';
+import { haptic } from '../../utils/haptics';
 
 interface CategoryPickerProps {
   selectedCategory: CategoryId;
@@ -28,6 +29,11 @@ export const CategoryPicker: React.FC<CategoryPickerProps> = ({
   const theme = COLORS[colorScheme];
   const categories = getCategoriesByType(type);
 
+  const handleSelect = (catId: CategoryId) => {
+    haptic.selection();
+    onSelectCategory(catId);
+  };
+
   return (
     <View style={styles.container}>
       <Text style={[styles.label, { color: theme.textSecondary }]}>
@@ -41,7 +47,7 @@ export const CategoryPicker: React.FC<CategoryPickerProps> = ({
             <TouchableOpacity
               key={cat.id}
               activeOpacity={0.7}
-              onPress={() => onSelectCategory(cat.id)}
+              onPress={() => handleSelect(cat.id)}
               style={[
                 styles.item,
                 {
@@ -64,7 +70,7 @@ export const CategoryPicker: React.FC<CategoryPickerProps> = ({
               >
                 <Ionicons
                   name={cat.icon}
-                  size={18}
+                  size={16}
                   color={isSelected ? '#FFFFFF' : cat.color}
                 />
               </View>
@@ -110,21 +116,21 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.sm,
+    paddingVertical: SPACING.xs + 4,
     paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.full,
     borderWidth: 1.5,
   },
   iconCircle: {
-    width: 28,
-    height: 28,
+    width: 26,
+    height: 26,
     borderRadius: RADIUS.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: SPACING.sm,
+    marginRight: SPACING.xs + 2,
   },
   name: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontSize: TYPOGRAPHY.fontSize.xs + 1,
   },
   errorText: {
     color: COLORS.expense,

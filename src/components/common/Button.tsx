@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/useColorScheme';
+import { haptic } from '../../utils/haptics';
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'outline' | 'ghost';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -110,10 +111,19 @@ export const Button: React.FC<ButtonProps> = ({
   const textColor = getTextColor();
   const iconSize = size === 'sm' ? 16 : size === 'lg' ? 22 : 18;
 
+  const handlePress = async () => {
+    if (variant === 'danger') {
+      await haptic.heavy();
+    } else {
+      await haptic.light();
+    }
+    onPress();
+  };
+
   return (
     <TouchableOpacity
       activeOpacity={0.8}
-      onPress={onPress}
+      onPress={handlePress}
       disabled={disabled || loading}
       style={[getContainerStyle(), style]}
     >

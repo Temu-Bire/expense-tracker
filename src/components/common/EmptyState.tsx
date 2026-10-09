@@ -11,6 +11,8 @@ interface EmptyStateProps {
   icon?: ComponentProps<typeof Ionicons>['name'];
   actionTitle?: string;
   onActionPress?: () => void;
+  secondaryActionTitle?: string;
+  onSecondaryActionPress?: () => void;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
@@ -19,6 +21,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   icon = 'receipt-outline',
   actionTitle,
   onActionPress,
+  secondaryActionTitle,
+  onSecondaryActionPress,
 }) => {
   const colorScheme = useColorScheme();
   const theme = COLORS[colorScheme];
@@ -31,7 +35,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           { backgroundColor: theme.surfaceSecondary },
         ]}
       >
-        <Ionicons name={icon} size={44} color={theme.textMuted} />
+        <Ionicons name={icon} size={40} color={theme.textMuted} />
       </View>
       <Text style={[styles.title, { color: theme.textPrimary }]}>{title}</Text>
       {message && (
@@ -39,15 +43,26 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           {message}
         </Text>
       )}
-      {actionTitle && onActionPress && (
-        <Button
-          title={actionTitle}
-          onPress={onActionPress}
-          variant="primary"
-          size="sm"
-          style={styles.button}
-        />
-      )}
+      <View style={styles.actionsContainer}>
+        {actionTitle && onActionPress && (
+          <Button
+            title={actionTitle}
+            onPress={onActionPress}
+            variant="primary"
+            size="sm"
+            style={styles.button}
+          />
+        )}
+        {secondaryActionTitle && onSecondaryActionPress && (
+          <Button
+            title={secondaryActionTitle}
+            onPress={onSecondaryActionPress}
+            variant="secondary"
+            size="sm"
+            style={styles.button}
+          />
+        )}
+      </View>
     </View>
   );
 };
@@ -56,12 +71,12 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: SPACING.xxxl,
+    paddingVertical: SPACING.xxl,
     paddingHorizontal: SPACING.xl,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
+    width: 72,
+    height: 72,
     borderRadius: RADIUS.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -77,7 +92,14 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    flexWrap: 'wrap',
   },
   button: {
     marginTop: SPACING.xs,

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/useColorScheme';
+import { haptic } from '../../utils/haptics';
 
 interface SegmentedControlProps<T extends string> {
   options: { label: string; value: T; activeColor?: string }[];
@@ -42,7 +43,10 @@ export function SegmentedControl<T extends string>({
           <TouchableOpacity
             key={option.value}
             activeOpacity={0.8}
-            onPress={() => onChange(option.value)}
+            onPress={() => {
+              haptic.selection();
+              onChange(option.value);
+            }}
             style={[
               styles.option,
               isSelected && {
@@ -51,6 +55,8 @@ export function SegmentedControl<T extends string>({
             ]}
           >
             <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
               style={[
                 styles.label,
                 {
