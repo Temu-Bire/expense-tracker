@@ -21,6 +21,7 @@ import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useExpenseStore } from '@/store/useExpenseStore';
 import { CategoryId, TransactionType } from '@/types/expense';
+import { haptic } from '@/utils/haptics';
 
 export default function AddExpenseModal() {
   const router = useRouter();
@@ -41,8 +42,11 @@ export default function AddExpenseModal() {
   const [type, setType] = useState<TransactionType>('expense');
   const [category, setCategory] = useState<CategoryId>('food');
   const [notes, setNotes] = useState('');
+  const [transactionDate, setTransactionDate] = useState<Date>(new Date());
+  const [dateMode, setDateMode] = useState<'today' | 'yesterday' | 'custom'>('today');
+  const [customDateString, setCustomDateString] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ title?: string; amount?: string }>({});
+  const [errors, setErrors] = useState<{ title?: string; amount?: string; date?: string }>({});
 
   useEffect(() => {
     if (existingTransaction) {
@@ -51,9 +55,18 @@ export default function AddExpenseModal() {
       setType(existingTransaction.type);
       setCategory(existingTransaction.category);
       setNotes(existingTransaction.notes || '');
+
+      const parsedDate = new Date(existingTransaction.date);
+      setTransactionDate(parsedDate);
+      setCustomDateString(parsedDate.toISOString().split('T')[0]);
+      setDateMode('custom');
     } else {
       setType('expense');
       setCategory('food');
+      const now = new Date();
+      setTransactionDate(now);
+      setCustomDateString(now.toISOString().split('T')[0]);
+      setDateMode('today');
     }
   }, [existingTransaction]);
 
@@ -66,11 +79,27 @@ export default function AddExpenseModal() {
     }
   };
 
+  const handleDateModeChange = (mode: 'today' | 'yesterday' | 'custom') => {
+    haptic.selection();
+    setDateMode(mode);
+
+    const now = new Date();
+    if (mode === 'today') {
+      setTransactionDate(now);
+    } else if (mode === 'yesterday') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      setTransactionDate(yesterday);
+    }
+  };
+
   const validate = (): boolean => {
-    const newErrors: { title?: string; amount?: string } = {};
+    const newErrors: { title?: string; amount?: string; date?: string } = {};
 
     if (!title.trim()) {
       newErrors.title = 'Title is required';
+    } else if (title.trim().length > 80) {
+      newErrors.title = 'Title must be 80 characters or fewer';
     }
 
     const parsedAmount = parseFloat(amount);
@@ -78,9 +107,21 @@ export default function AddExpenseModal() {
       newErrors.amount = 'Amount is required';
     } else if (isNaN(parsedAmount) || parsedAmount <= 0) {
       newErrors.amount = 'Please enter a valid positive number';
+    } else if (parsedAmount > 100000000) {
+      newErrors.amount = 'Amount cannot exceed $100,000,000';
+    }
+
+    if (dateMode === 'custom') {
+      const parsedCustom = new Date(customDateString);
+      if (isNaN(parsedCustom.getTime())) {
+        newErrors.date = 'Please enter a valid date (YYYY-MM-DD)';
+      }
     }
 
     setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      haptic.warning();
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -90,6 +131,14 @@ export default function AddExpenseModal() {
     setIsSubmitting(true);
     try {
       const parsedAmount = parseFloat(amount);
+      let finalIsoDate = transactionDate.toISOString();
+
+      if (dateMode === 'custom' && customDateString) {
+        const d = new Date(customDateString);
+        if (!isNaN(d.getTime())) {
+          finalIsoDate = d.toISOString();
+        }
+      }
 
       if (isEditing && params.id) {
         await updateExpense(params.id, {
@@ -97,7 +146,7 @@ export default function AddExpenseModal() {
           amount: parsedAmount,
           type,
           category,
-          date: existingTransaction?.date || new Date().toISOString(),
+          date: finalIsoDate,
           notes: notes.trim() || undefined,
         });
       } else {
@@ -106,13 +155,15 @@ export default function AddExpenseModal() {
           amount: parsedAmount,
           type,
           category,
-          date: new Date().toISOString(),
+          date: finalIsoDate,
           notes: notes.trim() || undefined,
         });
       }
 
+      await haptic.success();
       router.back();
     } catch {
+      await haptic.warning();
       Alert.alert('Error', 'Failed to save transaction. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -131,6 +182,7 @@ export default function AddExpenseModal() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            await haptic.heavy();
             await deleteExpense(params.id as string);
             router.back();
           },
@@ -161,7 +213,10 @@ export default function AddExpenseModal() {
         <View style={styles.topBar}>
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => router.back()}
+            onPress={() => {
+              haptic.light();
+              router.back();
+            }}
             style={[
               styles.iconButton,
               { backgroundColor: theme.surfaceSecondary },
@@ -194,7 +249,12 @@ export default function AddExpenseModal() {
             keyboardType="decimal-pad"
             value={amount}
             onChangeText={(val) => {
-              setAmount(val);
+              // Sanitize numeric input (allow only digits and single decimal dot)
+              const cleanVal = val.replace(/[^0-9.]/g, '');
+              const parts = cleanVal.split('.');
+              const sanitized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleanVal;
+
+              setAmount(sanitized);
               if (errors.amount) setErrors((prev) => ({ ...prev, amount: undefined }));
             }}
             error={errors.amount}
@@ -205,7 +265,7 @@ export default function AddExpenseModal() {
           {/* Title Input */}
           <Input
             label="Title"
-            placeholder="e.g. Grocery store, Salary, Coffee"
+            placeholder="e.g. Whole Foods, Monthly Salary, Coffee"
             value={title}
             onChangeText={(val) => {
               setTitle(val);
@@ -214,6 +274,71 @@ export default function AddExpenseModal() {
             error={errors.title}
             icon="create-outline"
           />
+
+          {/* Date Selector Row */}
+          <View style={styles.dateSection}>
+            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
+              DATE
+            </Text>
+            <View style={styles.dateButtonsRow}>
+              {(['today', 'yesterday', 'custom'] as const).map((mode) => {
+                const isSelected = dateMode === mode;
+                const label =
+                  mode === 'today'
+                    ? 'Today'
+                    : mode === 'yesterday'
+                    ? 'Yesterday'
+                    : 'Other Date';
+
+                return (
+                  <TouchableOpacity
+                    key={mode}
+                    activeOpacity={0.7}
+                    onPress={() => handleDateModeChange(mode)}
+                    style={[
+                      styles.dateChip,
+                      {
+                        backgroundColor: isSelected
+                          ? COLORS.primary
+                          : theme.surfaceSecondary,
+                        borderColor: isSelected
+                          ? COLORS.primary
+                          : theme.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dateChipText,
+                        {
+                          color: isSelected ? '#FFFFFF' : theme.textSecondary,
+                          fontWeight: isSelected
+                            ? TYPOGRAPHY.fontWeight.bold
+                            : TYPOGRAPHY.fontWeight.medium,
+                        },
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {dateMode === 'custom' && (
+              <Input
+                placeholder="YYYY-MM-DD (e.g. 2026-10-08)"
+                value={customDateString}
+                onChangeText={(val) => {
+                  setCustomDateString(val);
+                  if (errors.date) setErrors((prev) => ({ ...prev, date: undefined }));
+                }}
+                error={errors.date}
+                icon="calendar-outline"
+                containerStyle={styles.customDateInput}
+              />
+            )}
+          </View>
 
           {/* Category Picker */}
           <CategoryPicker
@@ -225,7 +350,7 @@ export default function AddExpenseModal() {
           {/* Notes Input */}
           <Input
             label="Notes (Optional)"
-            placeholder="Add any extra details or tags..."
+            placeholder="Add any extra details, invoice number, or tags..."
             value={notes}
             onChangeText={setNotes}
             icon="document-text-outline"
@@ -293,12 +418,41 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
   },
+  dateSection: {
+    marginBottom: SPACING.md,
+  },
+  sectionLabel: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: SPACING.xs,
+  },
+  dateButtonsRow: {
+    flexDirection: 'row',
+    gap: SPACING.xs + 2,
+    marginBottom: SPACING.xs,
+  },
+  dateChip: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  dateChipText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+  },
+  customDateInput: {
+    marginTop: SPACING.xs,
+  },
   notesInput: {
     minHeight: 48,
     textAlignVertical: 'top',
   },
   submitButton: {
-    marginTop: SPACING.lg,
+    marginTop: SPACING.md,
     marginBottom: SPACING.md,
   },
   deleteButton: {

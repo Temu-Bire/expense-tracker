@@ -4,6 +4,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, TYPOGRAPHY } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { haptic } from '@/utils/haptics';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -42,6 +43,11 @@ export default function TabLayout() {
             />
           ),
         }}
+        listeners={{
+          tabPress: () => {
+            haptic.selection();
+          },
+        }}
       />
       <Tabs.Screen
         name="analytics"
@@ -54,6 +60,11 @@ export default function TabLayout() {
               color={color}
             />
           ),
+        }}
+        listeners={{
+          tabPress: () => {
+            haptic.selection();
+          },
         }}
       />
     </Tabs>

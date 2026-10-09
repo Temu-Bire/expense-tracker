@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,22 +19,40 @@ import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useExpenseSummary } from '@/hooks/useExpenseSummary';
-import { TransactionType } from '@/types/expense';
+import { useExpenseStore } from '@/store/useExpenseStore';
+import { TimePeriod, TransactionType } from '@/types/expense';
 import { formatCurrency, formatPercentage } from '@/utils/formatters';
+import { haptic } from '@/utils/haptics';
 
 export default function AnalyticsScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = COLORS[colorScheme];
 
+  const isLoading = useExpenseStore((state) => state.isLoading);
+  const error = useExpenseStore((state) => state.error);
+  const init = useExpenseStore((state) => state.init);
+  const clearAll = useExpenseStore((state) => state.clearAll);
+  const loadSampleData = useExpenseStore((state) => state.loadSampleData);
+  const hideBalance = useExpenseStore((state) => state.hideBalance);
+  const storePeriod = useExpenseStore((state) => state.selectedPeriod);
+  const setSelectedPeriod = useExpenseStore((state) => state.setSelectedPeriod);
+
   const [activeType, setActiveType] = useState<TransactionType>('expense');
-  const { summary, expenseBreakdown, incomeBreakdown, expenses } =
-    useExpenseSummary();
+
+  const { summary, expenseBreakdown, incomeBreakdown, expenses, allExpenses } =
+    useExpenseSummary(storePeriod);
 
   const currentBreakdown =
     activeType === 'expense' ? expenseBreakdown : incomeBreakdown;
   const currentTotal =
     activeType === 'expense' ? summary.totalExpenses : summary.totalIncome;
+
+  const topCategory = currentBreakdown.length > 0 ? currentBreakdown[0] : null;
+  const averagePerTransaction =
+    summary.transactionCount > 0
+      ? currentTotal / Math.max(1, currentBreakdown.reduce((acc, c) => acc + c.count, 0))
+      : 0;
 
   const typeOptions: {
     label: string;
@@ -41,6 +62,48 @@ export default function AnalyticsScreen() {
     { label: 'Expenses Breakdown', value: 'expense', activeColor: COLORS.expense },
     { label: 'Income Breakdown', value: 'income', activeColor: COLORS.income },
   ];
+
+  const periodOptions: { label: string; value: TimePeriod }[] = [
+    { label: 'All Time', value: 'all' },
+    { label: 'This Month', value: 'month' },
+    { label: 'Past 7 Days', value: 'week' },
+  ];
+
+  const handleClearAll = () => {
+    Alert.alert(
+      'Reset All Data',
+      'Are you sure you want to permanently clear all transactions?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: async () => {
+            await haptic.heavy();
+            await clearAll();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleLoadDemo = async () => {
+    await haptic.success();
+    await loadSampleData();
+  };
+
+  if (isLoading && allExpenses.length === 0) {
+    return (
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: theme.background },
+        ]}
+      >
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView
@@ -54,31 +117,114 @@ export default function AnalyticsScreen() {
         <Header
           title="Analytics"
           subtitle="Visualize and understand your spending patterns"
+          rightAction={
+            allExpenses.length > 0 ? (
+              <TouchableOpacity
+                onPress={handleClearAll}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={[
+                  styles.resetButton,
+                  { backgroundColor: theme.surfaceSecondary },
+                ]}
+              >
+                <Ionicons name="trash-outline" size={18} color={COLORS.expense} />
+              </TouchableOpacity>
+            ) : undefined
+          }
+        />
+
+        {/* Error Banner */}
+        {error && (
+          <View
+            style={[
+              styles.errorBanner,
+              {
+                backgroundColor: theme.surfaceSecondary,
+                borderColor: COLORS.expense,
+              },
+            ]}
+          >
+            <Ionicons
+              name="alert-circle-outline"
+              size={18}
+              color={COLORS.expense}
+              style={{ marginRight: SPACING.xs + 2 }}
+            />
+            <Text
+              style={[styles.errorBannerText, { color: theme.textPrimary }]}
+              numberOfLines={1}
+            >
+              {error}
+            </Text>
+            <TouchableOpacity
+              onPress={() => init()}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={[styles.errorBannerRetry, { color: COLORS.primary }]}>
+                Retry
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Time Period Filter */}
+        <SegmentedControl
+          options={periodOptions}
+          selectedValue={storePeriod}
+          onChange={setSelectedPeriod}
+          style={styles.periodSegment}
         />
 
         {expenses.length === 0 ? (
           <EmptyState
-            title="No Data for Analytics"
-            message="Add some transactions first to see your spending analytics and category breakdowns."
+            title={
+              allExpenses.length === 0
+                ? 'No Data for Analytics'
+                : 'No Transactions in Period'
+            }
+            message={
+              allExpenses.length === 0
+                ? 'Add your first transaction or load sample data to explore spending analytics.'
+                : 'No transactions found in this time period. Try switching to "All Time".'
+            }
             icon="pie-chart-outline"
-            actionTitle="+ Add Transaction"
-            onActionPress={() => router.push('/add-expense')}
+            actionTitle={
+              allExpenses.length === 0 ? '+ Add Transaction' : 'Show All Time'
+            }
+            onActionPress={() => {
+              haptic.medium();
+              if (allExpenses.length === 0) {
+                router.push('/add-expense');
+              } else {
+                setSelectedPeriod('all');
+              }
+            }}
+            secondaryActionTitle={
+              allExpenses.length === 0
+                ? 'Load Demo Data'
+                : '+ Add Transaction'
+            }
+            onSecondaryActionPress={
+              allExpenses.length === 0
+                ? handleLoadDemo
+                : () => router.push('/add-expense')
+            }
           />
         ) : (
           <>
-            {/* Financial Health Summary Card */}
+            {/* Financial Ratio / Health Overview Card */}
             <Card style={styles.summaryOverviewCard}>
               <Text
                 style={[styles.overviewTitle, { color: theme.textSecondary }]}
               >
-                FINANCIAL RATIO
+                FINANCIAL RATIO & FLOW
               </Text>
               <View style={styles.ratioRow}>
                 <View style={styles.ratioItem}>
                   <Text
                     style={[styles.ratioValue, { color: COLORS.income }]}
                   >
-                    {formatCurrency(summary.totalIncome)}
+                    {formatCurrency(summary.totalIncome, { masked: hideBalance })}
                   </Text>
                   <Text
                     style={[styles.ratioLabel, { color: theme.textSecondary }]}
@@ -93,7 +239,7 @@ export default function AnalyticsScreen() {
                   <Text
                     style={[styles.ratioValue, { color: COLORS.expense }]}
                   >
-                    {formatCurrency(summary.totalExpenses)}
+                    {formatCurrency(summary.totalExpenses, { masked: hideBalance })}
                   </Text>
                   <Text
                     style={[styles.ratioLabel, { color: theme.textSecondary }]}
@@ -142,6 +288,57 @@ export default function AnalyticsScreen() {
               )}
             </Card>
 
+            {/* Quick Insights Cards Row */}
+            {topCategory && (
+              <View style={styles.insightsRow}>
+                <View
+                  style={[
+                    styles.insightCard,
+                    {
+                      backgroundColor: theme.cardBackground,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.insightLabel, { color: theme.textSecondary }]}>
+                    Top Category
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.insightValue, { color: topCategory.color }]}
+                  >
+                    {topCategory.name}
+                  </Text>
+                  <Text style={[styles.insightSub, { color: theme.textSecondary }]}>
+                    {topCategory.percentage.toFixed(0)}% of total
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.insightCard,
+                    {
+                      backgroundColor: theme.cardBackground,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.insightLabel, { color: theme.textSecondary }]}>
+                    Average Entry
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.insightValue, { color: theme.textPrimary }]}
+                  >
+                    {formatCurrency(averagePerTransaction, { masked: hideBalance })}
+                  </Text>
+                  <Text style={[styles.insightSub, { color: theme.textSecondary }]}>
+                    per transaction
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {/* Segmented Control for Breakdown Type */}
             <SegmentedControl
               options={typeOptions}
@@ -169,7 +366,7 @@ export default function AnalyticsScreen() {
                   },
                 ]}
               >
-                {formatCurrency(currentTotal)}
+                {formatCurrency(currentTotal, { masked: hideBalance })}
               </Text>
             </View>
 
@@ -177,7 +374,7 @@ export default function AnalyticsScreen() {
             {currentBreakdown.length === 0 ? (
               <EmptyState
                 title={`No ${activeType} transactions`}
-                message={`There are no ${activeType} transactions recorded yet.`}
+                message={`There are no ${activeType} transactions recorded in this period.`}
                 icon="receipt-outline"
               />
             ) : (
@@ -225,7 +422,7 @@ export default function AnalyticsScreen() {
                           { color: theme.textPrimary },
                         ]}
                       >
-                        {formatCurrency(item.total)}
+                        {formatCurrency(item.total, { masked: hideBalance })}
                       </Text>
                       <Text
                         style={[
@@ -269,12 +466,42 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    marginBottom: SPACING.md,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  errorBannerRetry: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    marginLeft: SPACING.sm,
+  },
   scrollContent: {
     padding: SPACING.lg,
     paddingBottom: SPACING.xxxl,
   },
+  periodSegment: {
+    marginBottom: SPACING.md,
+  },
+  resetButton: {
+    padding: SPACING.sm,
+    borderRadius: RADIUS.full,
+  },
   summaryOverviewCard: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   overviewTitle: {
     fontSize: TYPOGRAPHY.fontSize.xs,
@@ -320,6 +547,29 @@ const styles = StyleSheet.create({
   barCaption: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     textAlign: 'center',
+  },
+  insightsRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  insightCard: {
+    flex: 1,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+  },
+  insightLabel: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    marginBottom: 2,
+  },
+  insightValue: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    marginBottom: 2,
+  },
+  insightSub: {
+    fontSize: 10,
   },
   sectionHeader: {
     flexDirection: 'row',
