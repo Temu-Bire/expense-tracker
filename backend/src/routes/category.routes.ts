@@ -4,7 +4,7 @@ import {
   getCategoryById,
   createCategory,
 } from '../controllers/category.controller';
-import { validateRequest } from '../middleware/validate';
+import { validateRequest, authenticateToken, optionalAuth } from '../middleware';
 import {
   createCategorySchema,
   categoryIdParamSchema,
@@ -12,16 +12,18 @@ import {
 
 const router = Router();
 
-router.get('/', getCategories);
+router.get('/', optionalAuth, getCategories);
 
 router.get(
   '/:id',
+  optionalAuth,
   validateRequest({ params: categoryIdParamSchema }),
   getCategoryById
 );
 
 router.post(
   '/',
+  authenticateToken,
   validateRequest({ body: createCategorySchema }),
   createCategory
 );

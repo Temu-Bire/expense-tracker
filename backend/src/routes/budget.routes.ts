@@ -6,7 +6,7 @@ import {
   updateBudget,
   deleteBudget,
 } from '../controllers/budget.controller';
-import { validateRequest } from '../middleware/validate';
+import { validateRequest, authenticateToken } from '../middleware';
 import {
   createBudgetSchema,
   updateBudgetSchema,
@@ -14,6 +14,9 @@ import {
 } from '../validators/budget.validator';
 
 const router = Router();
+
+// Protect all budget endpoints with JWT authentication
+router.use(authenticateToken);
 
 router.get('/', getBudgets);
 

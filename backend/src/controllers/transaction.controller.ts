@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/prisma';
 import { sendSuccess } from '../utils/apiResponse';
-import { NotFoundError, BadRequestError } from '../errors';
+import { NotFoundError, BadRequestError, UnauthorizedError } from '../errors';
 import { Prisma } from '@prisma/client';
 
 export const getTransactions = async (
@@ -10,7 +10,7 @@ export const getTransactions = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const userId = (req.headers['x-user-id'] as string) || undefined;
+    const userId = req.user?.userId || (req.headers['x-user-id'] as string) || undefined;
     const { type, categoryId, startDate, endDate, search, page = '1', limit = '20' } = req.query;
 
     const pageNumber = Math.max(1, parseInt(page as string, 10));
@@ -91,9 +91,13 @@ export const getTransactionById = async (
 ): Promise<void> => {
   try {
     const id = req.params.id as string;
+    const userId = req.user?.userId || (req.headers['x-user-id'] as string) || undefined;
 
-    const transaction = await prisma.transaction.findUnique({
-      where: { id },
+    const transaction = await prisma.transaction.findFirst({
+      where: {
+        id,
+        ...(userId ? { userId } : {}),
+      },
       include: {
         category: true,
       },
@@ -116,24 +120,10 @@ export const createTransaction = async (
 ): Promise<void> => {
   try {
     const { title, amount, type, categoryId, date, notes } = req.body;
-    let userId = req.headers['x-user-id'] as string;
+    let userId = req.user?.userId || (req.headers['x-user-id'] as string);
 
-    // If no userId header provided, check or use default user
     if (!userId) {
-      const defaultUser = await prisma.user.findFirst();
-      if (defaultUser) {
-        userId = defaultUser.id;
-      } else {
-        const createdUser = await prisma.user.create({
-          data: {
-            email: 'default@expensetracker.local',
-            passwordHash: 'not-for-login',
-            firstName: 'Default',
-            lastName: 'User',
-          },
-        });
-        userId = createdUser.id;
-      }
+      throw new UnauthorizedError('Authentication token required');
     }
 
     // Verify category exists
@@ -173,9 +163,16 @@ export const updateTransaction = async (
 ): Promise<void> => {
   try {
     const id = req.params.id as string;
+    const userId = req.user?.userId || (req.headers['x-user-id'] as string) || undefined;
     const { title, amount, type, categoryId, date, notes } = req.body;
 
-    const existing = await prisma.transaction.findUnique({ where: { id } });
+    const existing = await prisma.transaction.findFirst({
+      where: {
+        id,
+        ...(userId ? { userId } : {}),
+      },
+    });
+
     if (!existing) {
       throw new NotFoundError(`Transaction with ID '${id}' not found`);
     }
@@ -215,8 +212,15 @@ export const deleteTransaction = async (
 ): Promise<void> => {
   try {
     const id = req.params.id as string;
+    const userId = req.user?.userId || (req.headers['x-user-id'] as string) || undefined;
 
-    const existing = await prisma.transaction.findUnique({ where: { id } });
+    const existing = await prisma.transaction.findFirst({
+      where: {
+        id,
+        ...(userId ? { userId } : {}),
+      },
+    });
+
     if (!existing) {
       throw new NotFoundError(`Transaction with ID '${id}' not found`);
     }
@@ -235,7 +239,7 @@ export const getTransactionSummary = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const userId = (req.headers['x-user-id'] as string) || undefined;
+    const userId = req.user?.userId || (req.headers['x-user-id'] as string) || undefined;
     const { startDate, endDate } = req.query;
 
     const where: Prisma.TransactionWhereInput = {};

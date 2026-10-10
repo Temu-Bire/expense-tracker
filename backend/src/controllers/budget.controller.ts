@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/prisma';
 import { sendSuccess } from '../utils/apiResponse';
-import { NotFoundError } from '../errors';
+import { NotFoundError, UnauthorizedError } from '../errors';
 import { Prisma } from '@prisma/client';
 
 export const getBudgets = async (
@@ -10,7 +10,7 @@ export const getBudgets = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const userId = (req.headers['x-user-id'] as string) || undefined;
+    const userId = req.user?.userId || (req.headers['x-user-id'] as string) || undefined;
 
     const budgets = await prisma.budget.findMany({
       where: userId ? { userId } : {},
@@ -40,9 +40,13 @@ export const getBudgetById = async (
 ): Promise<void> => {
   try {
     const id = req.params.id as string;
+    const userId = req.user?.userId || (req.headers['x-user-id'] as string) || undefined;
 
-    const budget = await prisma.budget.findUnique({
-      where: { id },
+    const budget = await prisma.budget.findFirst({
+      where: {
+        id,
+        ...(userId ? { userId } : {}),
+      },
       include: {
         category: true,
       },
@@ -65,23 +69,10 @@ export const createBudget = async (
 ): Promise<void> => {
   try {
     const { name, amount, period, startDate, endDate, categoryId } = req.body;
-    let userId = req.headers['x-user-id'] as string;
+    let userId = req.user?.userId || (req.headers['x-user-id'] as string);
 
     if (!userId) {
-      const defaultUser = await prisma.user.findFirst();
-      if (defaultUser) {
-        userId = defaultUser.id;
-      } else {
-        const createdUser = await prisma.user.create({
-          data: {
-            email: 'default@expensetracker.local',
-            passwordHash: 'not-for-login',
-            firstName: 'Default',
-            lastName: 'User',
-          },
-        });
-        userId = createdUser.id;
-      }
+      throw new UnauthorizedError('Authentication token required');
     }
 
     const budget = await prisma.budget.create({
@@ -112,9 +103,16 @@ export const updateBudget = async (
 ): Promise<void> => {
   try {
     const id = req.params.id as string;
+    const userId = req.user?.userId || (req.headers['x-user-id'] as string) || undefined;
     const { name, amount, period, startDate, endDate, categoryId } = req.body;
 
-    const existing = await prisma.budget.findUnique({ where: { id } });
+    const existing = await prisma.budget.findFirst({
+      where: {
+        id,
+        ...(userId ? { userId } : {}),
+      },
+    });
+
     if (!existing) {
       throw new NotFoundError(`Budget with ID '${id}' not found`);
     }
@@ -147,8 +145,15 @@ export const deleteBudget = async (
 ): Promise<void> => {
   try {
     const id = req.params.id as string;
+    const userId = req.user?.userId || (req.headers['x-user-id'] as string) || undefined;
 
-    const existing = await prisma.budget.findUnique({ where: { id } });
+    const existing = await prisma.budget.findFirst({
+      where: {
+        id,
+        ...(userId ? { userId } : {}),
+      },
+    });
+
     if (!existing) {
       throw new NotFoundError(`Budget with ID '${id}' not found`);
     }

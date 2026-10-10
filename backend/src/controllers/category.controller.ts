@@ -10,7 +10,7 @@ export const getCategories = async (
 ): Promise<void> => {
   try {
     const { type } = req.query;
-    const userId = (req.headers['x-user-id'] as string) || undefined;
+    const userId = req.user?.userId || (req.headers['x-user-id'] as string) || undefined;
 
     const whereClause: Record<string, unknown> = {
       OR: [{ isDefault: true }, ...(userId ? [{ userId }] : [])],
@@ -62,7 +62,7 @@ export const createCategory = async (
 ): Promise<void> => {
   try {
     const { name, icon, color, type, slug } = req.body;
-    const userId = (req.headers['x-user-id'] as string) || undefined;
+    const userId = req.user?.userId || (req.headers['x-user-id'] as string) || undefined;
 
     if (slug) {
       const existing = await prisma.category.findUnique({ where: { slug } });

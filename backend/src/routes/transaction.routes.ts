@@ -7,7 +7,7 @@ import {
   deleteTransaction,
   getTransactionSummary,
 } from '../controllers/transaction.controller';
-import { validateRequest } from '../middleware/validate';
+import { validateRequest, authenticateToken } from '../middleware';
 import {
   createTransactionSchema,
   updateTransactionSchema,
@@ -16,6 +16,9 @@ import {
 } from '../validators/transaction.validator';
 
 const router = Router();
+
+// Protect all transaction endpoints with JWT authentication
+router.use(authenticateToken);
 
 router.get('/summary', getTransactionSummary);
 
