@@ -38,28 +38,47 @@ A modular, scalable, and cross-platform Expense Tracker mobile application built
 
 ```
 expense-tracker/
-├── app/                        # Expo Router screen routes
-│   ├── (tabs)/
-│   │   ├── _layout.tsx         # Bottom tab navigation bar with haptics
-│   │   ├── index.tsx           # Dashboard / Transactions Overview
-│   │   └── analytics.tsx       # Analytics & Spending breakdown
-│   ├── _layout.tsx             # Root layout & providers
-│   ├── add-expense.tsx         # Add / Edit Transaction modal
-│   └── +not-found.tsx          # 404 screen
-├── src/                        # Modular source code
-│   ├── components/             # Reusable UI components
-│   │   ├── common/             # Base UI elements (Button, Card, Input, EmptyState, SegmentedControl, Header)
-│   │   ├── expense/            # Domain components (SummaryCard, TransactionItem, CategoryBadge, CategoryPicker)
-│   │   └── index.ts            # Root component barrel
-│   ├── constants/              # Categories, theme tokens, and demo seed data
-│   ├── hooks/                  # Custom hooks (useExpenseSummary, useColorScheme)
-│   ├── services/               # Storage service (AsyncStorage abstractions)
-│   ├── store/                  # Zustand store (useExpenseStore)
-│   ├── types/                  # TypeScript domain models
-│   └── utils/                  # Calculations, formatters, and cross-platform haptics
-├── assets/                     # App icons and splash screens
-├── .env                        # Local packager IP configuration
-└── package.json
+├── mobile/                     # React Native / Expo Mobile App
+│   ├── app/                    # Expo Router screen routes
+│   │   ├── (tabs)/             # Dashboard & Analytics screens
+│   │   ├── _layout.tsx         # Root layout & providers
+│   │   └── add-expense.tsx     # Add / Edit Transaction modal
+│   ├── src/                    # Components, state store, hooks, utils
+│   ├── assets/                 # Icons and splash screens
+│   ├── app.json                # Expo configuration
+│   └── package.json            # Mobile app dependencies
+├── backend/                    # Node.js, Express, TypeScript, PostgreSQL REST API
+│   ├── prisma/                 # Database schema, PostgreSQL migrations & seeders
+│   ├── src/
+│   │   ├── config/             # Environment & Prisma client singleton
+│   │   ├── controllers/        # Business logic controllers (Transactions, Categories, Budgets, Auth)
+│   │   ├── middleware/         # Zod validation & standardized error handlers
+│   │   ├── routes/             # RESTful API route declarations
+│   │   └── validators/         # Zod schemas for all models
+│   ├── scripts/                # Health check & verification test suite
+│   ├── README.md               # Complete API documentation
+│   └── package.json            # Backend dependencies
+└── package.json                # Monorepo root scripts
+```
+
+---
+
+## ⚡ Quick Start
+
+### Root Monorepo Commands:
+```bash
+# Mobile (Expo)
+npm run mobile:start       # Start Metro bundler
+npm run mobile:tunnel      # Start with cloud tunnel
+npm run mobile:android     # Launch Android emulator
+npm run mobile:ios         # Launch iOS simulator
+npm run mobile:web         # Launch web preview
+
+# Backend (Node.js + Express + Prisma)
+npm run backend:dev        # Start backend with hot reload (tsx)
+npm run backend:build      # Compile TypeScript to dist/
+npm run backend:start      # Run production compiled server
+npm run backend:test       # Execute health endpoint & error handling test suite
 ```
 
 ---
