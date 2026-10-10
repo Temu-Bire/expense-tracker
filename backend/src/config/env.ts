@@ -10,6 +10,13 @@ export const config = {
   apiPrefix: process.env.API_PREFIX || '/api',
   corsOrigin: process.env.CORS_ORIGIN || '*',
   databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/expense_tracker?schema=public',
-  jwtSecret: process.env.JWT_SECRET || 'dev-jwt-secret-key-32-chars-long-minimum',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+
+  // JWT Configuration
+  jwtAccessSecret: process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'dev-jwt-access-secret-32-chars-long-minimum',
+  jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-jwt-refresh-secret-32-chars-long-minimum',
+  jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+
+  // Password Hashing
+  bcryptSaltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS || '10', 10),
 };
