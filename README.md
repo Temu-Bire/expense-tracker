@@ -79,6 +79,7 @@ npm run backend:dev        # Start backend with hot reload (tsx)
 npm run backend:build      # Compile TypeScript to dist/
 npm run backend:start      # Run production compiled server
 npm run backend:test       # Execute health endpoint & error handling test suite
+npm run backend:test:auth  # Execute authentication & security test suite
 ```
 
 ---

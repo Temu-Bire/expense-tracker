@@ -100,9 +100,9 @@ async function runTests() {
     }
 
     // Test 4: Request Validation Error Structure
-    console.log('\n▶ Test 4: Checking request validation middleware error format (POST /api/transactions with empty body)...');
+    console.log('\n▶ Test 4: Checking request validation middleware error format (POST /api/auth/register with empty body)...');
     const res4 = await request(
-      `${baseUrl}/api/transactions`,
+      `${baseUrl}/api/auth/register`,
       {
         method: 'POST',
         headers: {

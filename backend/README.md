@@ -281,9 +281,62 @@ All endpoints (except root `/health`) are prefixed with `/api`.
 
 ---
 
-### 👤 Authentication
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/auth/register` | Register new user account |
-| `POST` | `/api/auth/login` | Authenticate user and receive token |
-| `GET` | `/api/auth/me` | Fetch authenticated user profile (`x-user-id` header) |
+### 👤 Authentication & Session Management
+| Method | Endpoint | Protection | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | Public | Register new user (passwords hashed via bcrypt, returns token pair) |
+| `POST` | `/api/auth/login` | Public | Authenticate user (returns access token + refresh token) |
+| `POST` | `/api/auth/refresh` | Public | Rotate refresh token (issues new access token and rotated refresh token) |
+| `POST` | `/api/auth/logout` | Public | Revoke refresh token in database |
+| `GET` | `/api/auth/me` | Bearer Token | Fetch authenticated user profile |
+
+**Authorization Header:**
+```http
+Authorization: Bearer <accessToken>
+```
+
+**Register Payload (POST `/api/auth/register`):**
+```json
+{
+  "email": "user@example.com",
+  "password": "SecurePassword123!",
+  "firstName": "Alex",
+  "lastName": "Smith",
+  "currency": "USD"
+}
+```
+
+**Login Payload (POST `/api/auth/login`):**
+```json
+{
+  "email": "user@example.com",
+  "password": "SecurePassword123!"
+}
+```
+
+**Refresh Token Payload (POST `/api/auth/refresh`):**
+```json
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**Logout Payload (POST `/api/auth/logout`):**
+```json
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run Health & API Validation Tests
+npm run test:health
+
+# Run Comprehensive Authentication & Security Test Suite
+npm run test:auth
+```
+

@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "test:health": "tsx scripts/test-health.ts"
+    "test:health": "tsx scripts/test-health.ts",
+    "test:auth": "tsx scripts/test-auth.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

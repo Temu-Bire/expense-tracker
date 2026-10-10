@@ -12,6 +12,7 @@
     "backend:dev": "npm --prefix backend run dev",
     "backend:build": "npm --prefix backend run build",
     "backend:start": "npm --prefix backend start",
-    "backend:test": "npm --prefix backend run test:health"
+    "backend:test": "npm --prefix backend run test:health",
+    "backend:test:auth": "npm --prefix backend run test:auth"
   }
 }
